@@ -1,11 +1,12 @@
-
 from __future__ import division
+
+import fuel
+import os
 
 supported_datasets = ['bmnist', 'silhouettes']
 # ToDo: # 'mnist' and 'tfd' are not normalized (0<= x <=1.)
 
-
-def get_data(data_name):
+def get_data(data_name, channels=None, size=None):
     if data_name == 'mnist':
         from fuel.datasets import MNIST
         img_size = (28, 28)
@@ -20,14 +21,6 @@ def get_data(data_name):
         data_train = BinarizedMNIST(which_sets=['train'], sources=['features'])
         data_valid = BinarizedMNIST(which_sets=['valid'], sources=['features'])
         data_test  = BinarizedMNIST(which_sets=['test'], sources=['features'])
-    # TODO: make a generic catch-all for loading custom datasets like "colormnist"
-    elif data_name == 'colormnist':
-        from draw.colormnist import ColorMNIST
-        img_size = (28, 28)
-        channels = 3
-        data_train = ColorMNIST(which_sets=['train'], sources=['features'])
-        data_valid = ColorMNIST(which_sets=['test'], sources=['features'])
-        data_test  = ColorMNIST(which_sets=['test'], sources=['features'])
     elif data_name == 'cifar10':
         from fuel.datasets.cifar10 import CIFAR10
         img_size = (32, 32)
@@ -58,6 +51,21 @@ def get_data(data_name):
         data_valid = TorontoFaceDatabase(which_sets=['valid'], size=size, sources=['features'])
         data_test  = TorontoFaceDatabase(which_sets=['test'], size=size, sources=['features'])
     else:
-        raise ValueError("Unknown dataset %s" % data_name)
+        from fuel.datasets import H5PYDataset
+        from fuel.transformers.defaults import uint8_pixels_to_floatX
+        if size is None or channels is None:
+            raise Exception("Image size and channels must be specified for data source {}".format(data_name))
+        img_size = (size, size)
+        dataset_fname = os.path.join(fuel.config.data_path, data_name+'.hdf5')
+        data_train = H5PYDataset(dataset_fname, which_sets=['train'], sources=['features'])
+        try:
+            data_valid = H5PYDataset(dataset_fname, which_sets=['valid'], sources=['features'])
+        except ValueError as e:
+            data_valid = H5PYDataset(dataset_fname, which_sets=['test'], sources=['features'])
+        data_test = H5PYDataset(dataset_fname, which_sets=['test'], sources=['features'])
+        # this maybe could be an option
+        data_train.default_transformers = uint8_pixels_to_floatX(('features',))
+        data_valid.default_transformers = uint8_pixels_to_floatX(('features',))
+        data_test.default_transformers = uint8_pixels_to_floatX(('features',))
 
     return img_size, channels, data_train, data_valid, data_test

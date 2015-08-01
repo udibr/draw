@@ -50,10 +50,10 @@ from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 
 #----------------------------------------------------------------------------
 
-def main(name, dataset, epochs, batch_size, learning_rate, 
+def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
          attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel):
 
-    image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset)
+    image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, channels, size)
 
     train_stream = Flatten(DataStream.default_stream(data_train, iteration_scheme=SequentialScheme(data_train.num_examples, batch_size)))
     valid_stream = Flatten(DataStream.default_stream(data_valid, iteration_scheme=SequentialScheme(data_valid.num_examples, batch_size)))
@@ -124,7 +124,8 @@ def main(name, dataset, epochs, batch_size, learning_rate,
 
     print("\nRunning experiment %s" % longname)
     print("               dataset: %s" % dataset)
-    print("          subdirectory: %s" % subdir)
+    print("              channels: %d" % channels)
+    print("            image_size: %dx%d" % image_size)
     print("         learning rate: %g" % learning_rate)
     print("             attention: %s" % attention)
     print("          n_iterations: %d" % n_iter)
@@ -254,6 +255,10 @@ if __name__ == "__main__":
                 default=None, help="Name for this experiment")
     parser.add_argument("--dataset", type=str, dest="dataset",
                 default="bmnist", help="Dataset to use: [bmnist|mnist|cifar10]")
+    parser.add_argument("--channels", type=int,
+                default=None, help="number of channels (if custom dataset)")
+    parser.add_argument("--size", type=int,
+                default=None, help="image size (if custom dataset)")
     parser.add_argument("--epochs", type=int, dest="epochs",
                 default=100, help="Number of training epochs to do")
     parser.add_argument("--bs", "--batch-size", type=int, dest="batch_size",
