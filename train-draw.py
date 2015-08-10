@@ -28,7 +28,7 @@ from fuel.transformers import Flatten
 
 from blocks.algorithms import GradientDescent, CompositeRule, StepClipping, RMSProp, Adam
 from blocks.bricks import Tanh, Identity
-from blocks.bricks.cost import BinaryCrossEntropy
+from blocks.bricks.cost import BinaryCrossEntropy, AbsoluteError, CostMatrix
 from blocks.bricks.recurrent import SimpleRecurrent, LSTM
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal 
 from blocks.filter import VariableFilter
@@ -47,6 +47,12 @@ from draw.draw import *
 from draw.samplecheckpoint import SampleCheckpoint
 from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 
+# you can only have one of these top level. wat?
+class BinaryCrossEntropyCopy(CostMatrix):
+    @application
+    def cost_matrix(self, y, y_hat):
+        cost = tensor.nnet.binary_crossentropy(y_hat, y)
+        return cost
 
 #----------------------------------------------------------------------------
 
@@ -163,7 +169,23 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     recons_term = BinaryCrossEntropy().apply(x, x_recons)
     recons_term.name = "recons_term"
 
-    cost = recons_term + kl_terms.sum(axis=0).mean()
+    # add cost of edges
+    edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+    th_filter = T.reshape(edge_matrix, (1,3,3,1))
+
+    before_len = x.shape[0]
+    after_len = x_recons.shape[0]
+    before4 = T.reshape(x, (before_len, channels, img_height, img_width))
+    after4 = T.reshape(x_recons, (after_len, channels, img_height, img_width))
+    edge_image1 = theano.tensor.nnet.conv.conv2d(before4, th_filter, border_mode='valid') + 0.5
+    edge_image2 = theano.tensor.nnet.conv.conv2d(after4, th_filter, border_mode='valid') + 0.5
+
+    recons_term2 = BinaryCrossEntropyCopy().apply(edge_image1, edge_image2)
+    recons_term2.name = "recons_term2"
+
+    cost = recons_term + 10 * recons_term2 + kl_terms.sum(axis=0).mean()
+    # cost = recons_term + 1000 * recons_term2 + kl_terms.sum(axis=0).mean()
+    # cost = recons_term + kl_terms.sum(axis=0).mean()
     cost.name = "nll_bound"
 
     #------------------------------------------------------------
