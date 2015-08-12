@@ -47,9 +47,8 @@ from draw.draw import *
 from draw.samplecheckpoint import SampleCheckpoint
 from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 
-# you can only have one of these top level. wat?
+# get rid of this soon
 class BinaryCrossEntropyCopy(CostMatrix):
-    @application
     def cost_matrix(self, y, y_hat):
         cost = tensor.nnet.binary_crossentropy(y_hat, y)
         return cost
@@ -171,7 +170,11 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
     # add cost of edges
     edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-    th_filter = T.reshape(edge_matrix, (1,3,3,1))
+    # this is bizarre and suspucious
+    if(channels == 1):
+        th_filter = T.reshape(edge_matrix, (1,1,3,3))
+    else:
+        th_filter = T.reshape(edge_matrix, (1,3,3,1))
 
     before_len = x.shape[0]
     after_len = x_recons.shape[0]
@@ -180,7 +183,7 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     edge_image1 = theano.tensor.nnet.conv.conv2d(before4, th_filter, border_mode='valid') + 0.5
     edge_image2 = theano.tensor.nnet.conv.conv2d(after4, th_filter, border_mode='valid') + 0.5
 
-    recons_term2 = BinaryCrossEntropyCopy().apply(edge_image1, edge_image2)
+    recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
     recons_term2.name = "recons_term2"
 
     cost = recons_term + 10 * recons_term2 + kl_terms.sum(axis=0).mean()
