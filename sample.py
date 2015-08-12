@@ -27,6 +27,8 @@ def scale_norm(arr):
 # these aren't paramed yet in a generic way, but these values work
 ROWS = 10
 COLS = 20
+# ROWS = 3
+# COLS = 6
 
 def img_grid(arr, global_scale=True):
     N, channels, height, width = arr.shape
@@ -43,8 +45,8 @@ def img_grid(arr, global_scale=True):
     # if rows*cols < N:
     #     rows = rows + 1
 
-    total_height = rows * height + 9
-    total_width  = cols * width + 19
+    total_height = rows * height + (ROWS - 1)
+    total_width  = cols * width + (COLS - 1)
 
     if global_scale:
         arr = scale_norm(arr)
@@ -112,9 +114,20 @@ def generate_samples(p, subdir, output_size, channels):
         img = img_grid(samples[i,:,:,:])
         img.save("{0}/time-{1:03d}.png".format(subdir, i))
 
+    # for i in xrange(n_iter-1):
+    #     img = img_grid(samples[(n_iter-1)-i,:,:,:])
+    #     img.save("{0}/backtime-{1:03d}.png".format(subdir, i))
+
     #with open("centers.pkl", "wb") as f:
     #    pikle.dump(f, (center_y, center_x, delta))
     os.system("convert -delay 5 {0}/time-*.png -delay 300 {0}/sample.png {0}/sequence.gif".format(subdir))
+
+# This thing doesn't serialize right...
+# from blocks.bricks.cost import CostMatrix
+# class BinaryCrossEntropyCopy(CostMatrix):
+#     def cost_matrix(self, y, y_hat):
+#         cost = tensor.nnet.binary_crossentropy(y_hat, y)
+#         return cost
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -136,6 +149,4 @@ if __name__ == "__main__":
         os.makedirs(subdir)
 
     generate_samples(p, subdir, args.size, args.channels)
-
-
 
