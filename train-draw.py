@@ -169,12 +169,14 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     recons_term.name = "recons_term"
 
     # add cost of edges
-    edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-    # this is bizarre and suspucious
     if(channels == 1):
+        edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
         th_filter = T.reshape(edge_matrix, (1,1,3,3))
     else:
-        th_filter = T.reshape(edge_matrix, (1,3,3,1))
+        edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
+                                       [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
+                                       [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+        th_filter = T.reshape(edge_matrix, (1,3,3,3))
 
     before_len = x.shape[0]
     after_len = x_recons.shape[0]
