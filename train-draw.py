@@ -28,7 +28,7 @@ from fuel.transformers import Flatten
 
 from blocks.algorithms import GradientDescent, CompositeRule, StepClipping, RMSProp, Adam
 from blocks.bricks import Tanh, Identity
-from blocks.bricks.cost import BinaryCrossEntropy, AbsoluteError, CostMatrix
+from blocks.bricks.cost import BinaryCrossEntropy, AbsoluteError, CostMatrix, SquaredError
 from blocks.bricks.recurrent import SimpleRecurrent, LSTM
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal 
 from blocks.filter import VariableFilter
@@ -185,12 +185,14 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     edge_image1 = theano.tensor.nnet.conv.conv2d(before4, th_filter, border_mode='valid') + 0.5
     edge_image2 = theano.tensor.nnet.conv.conv2d(after4, th_filter, border_mode='valid') + 0.5
 
-    recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    recons_term2 = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
     recons_term2.name = "recons_term2"
 
-    cost = recons_term + 10 * recons_term2 + kl_terms.sum(axis=0).mean()
+    cost = 0.5 * recons_term + 0.5 * recons_term2 + kl_terms.sum(axis=0).mean()
+    # cost = 0.9 * recons_term + 0.1 * recons_term2 + kl_terms.sum(axis=0).mean()
     # cost = recons_term + 1000 * recons_term2 + kl_terms.sum(axis=0).mean()
-    # cost = recons_term + kl_terms.sum(axis=0).mean()
+    cost = recons_term + kl_terms.sum(axis=0).mean()
     cost.name = "nll_bound"
 
     #------------------------------------------------------------
@@ -260,7 +262,8 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 #                updates=scan_updates, 
                 prefix="test"),
             PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
-            SampleCheckpoint(image_size=image_size[0], channels=channels, save_subdir=subdir, before_training=True, after_epoch=True),
+            SampleCheckpoint(image_size=image_size[0], channels=channels, save_subdir=subdir, \
+                before_training=True, after_epoch=True, train_stream=train_stream, test_stream=test_stream),
             # Plot(name, channels=plot_channels),
             ProgressBar(),
             Printing()])
