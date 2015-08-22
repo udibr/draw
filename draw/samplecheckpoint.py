@@ -36,7 +36,7 @@ class SampleCheckpoint(Checkpoint):
         """Sample the model and save images to disk
         """
         if self.samples_every != 0 and self.iteration % self.samples_every == 0:
-            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels)
+            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, 6, 8, False)
             if os.path.exists(self.epoch_src):
                 epoch_dst = "{0}/epoch-{1:03d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.epoch_src, epoch_dst)

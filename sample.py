@@ -25,17 +25,17 @@ def scale_norm(arr):
     return arr / scale
 
 # these aren't paramed yet in a generic way, but these values work
-ROWS = 10
-COLS = 20
-# ROWS = 3
-# COLS = 6
+# ROWS = 10
+# COLS = 20
+# ROWS = 6
+# COLS = 8
 
-def img_grid(arr, global_scale=True):
+def img_grid(arr, rows, cols, global_scale=True):
     N, channels, height, width = arr.shape
 
-    global ROWS, COLS
-    rows = ROWS
-    cols = COLS
+    # global ROWS, COLS
+    # rows = ROWS
+    # cols = COLS
     # rows = int(np.sqrt(N))
     # cols = int(np.sqrt(N))
 
@@ -45,8 +45,8 @@ def img_grid(arr, global_scale=True):
     # if rows*cols < N:
     #     rows = rows + 1
 
-    total_height = rows * height + (ROWS - 1)
-    total_width  = cols * width + (COLS - 1)
+    total_height = rows * height + (rows - 1)
+    total_width  = cols * width + (cols - 1)
 
     if global_scale:
         arr = scale_norm(arr)
@@ -73,7 +73,7 @@ def img_grid(arr, global_scale=True):
         out = np.dstack(I).astype(np.uint8)
     return Image.fromarray(out)
 
-def generate_samples(p, subdir, output_size, channels):
+def generate_samples(p, subdir, output_size, channels, rows, cols, flat):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -86,32 +86,62 @@ def generate_samples(p, subdir, output_size, channels):
     del draw._theano_seed
     draw.seed_rng = np.random.RandomState(config.default_seed)
 
-    #------------------------------------------------------------
-    logging.info("Compiling sample function...")
-
     n_samples = T.iscalar("n_samples")
-    samples = draw.sample(n_samples)
+    if(flat):
+        #------------------------------------------------------------
+        logging.info("Compiling sample function...")
+        rowspace = np.linspace(-1,1,rows)
+        colspace = np.linspace(-1,1,cols)
+        ul = []
+        for c in range(cols):
+            for r in range(rows):
+                u1 = np.zeros(200)
+                u1[1] = rowspace[r]
+                u1[2] = colspace[c]
+                u1 = np.random.uniform(-1, 1, size=200)
+                ul.append(u1)
+                # ul.append([rowspace[r], colspace[c]])
+        u = np.array(ul)
+        print(u)
+        u_var = T.matrix("u_var")
+        samples_at = draw.sample_at(n_samples, u_var)
+        do_sample_at = theano.function([n_samples, u_var], outputs=samples_at, allow_input_downcast=True)
+        #------------------------------------------------------------
+        logging.info("Sampling and saving images...")
+        samples, newu = do_sample_at(rows*cols, u)
+        print("NEWU: ", newu)
+        print("NEWU.s: ", newu.shape)
+        print("NEWU[0]: ", newu[1])
+    else:
+        #------------------------------------------------------------
+        logging.info("Compiling sample function...")
+        samples = draw.sample(n_samples)
+        do_sample = theano.function([n_samples], outputs=samples, allow_input_downcast=True)
+        #------------------------------------------------------------
+        logging.info("Sampling and saving images...")
+        samples = do_sample(rows*cols)
 
-    do_sample = theano.function([n_samples], outputs=samples, allow_input_downcast=True)
+        # samples = draw.sample_back(n_samples)
+        # do_sample = theano.function([n_samples], outputs=samples, allow_input_downcast=True)
+        # #------------------------------------------------------------
+        # logging.info("Sampling and saving images...")
+        # samples, newu = do_sample(rows*cols)
+        # print("NEWU: ", newu)
+        # print("NEWU.s: ", newu.shape)
+        # print("NEWU[0]: ", newu[1])
 
-    #------------------------------------------------------------
-    logging.info("Sampling and saving images...")
-
-    global ROWS, COLS
-    samples = do_sample(ROWS*COLS)
     #samples = np.random.normal(size=(16, 100, 28*28))
 
     n_iter, N, D = samples.shape
     # logging.info("SHAPE IS: {}".format(samples.shape))
-
     samples = samples.reshape( (n_iter, N, channels, output_size, output_size) )
 
     if(n_iter > 0):
-        img = img_grid(samples[n_iter-1,:,:,:])
+        img = img_grid(samples[n_iter-1,:,:,:], rows, cols)
         img.save("{0}/sample.png".format(subdir))
 
     for i in xrange(n_iter-1):
-        img = img_grid(samples[i,:,:,:])
+        img = img_grid(samples[i,:,:,:], rows, cols)
         img.save("{0}/time-{1:03d}.png".format(subdir, i))
 
     # for i in xrange(n_iter-1):
@@ -122,13 +152,6 @@ def generate_samples(p, subdir, output_size, channels):
     #    pikle.dump(f, (center_y, center_x, delta))
     os.system("convert -delay 5 {0}/time-*.png -delay 300 {0}/sample.png {0}/sequence.gif".format(subdir))
 
-# This thing doesn't serialize right...
-# from blocks.bricks.cost import CostMatrix
-# class BinaryCrossEntropyCopy(CostMatrix):
-#     def cost_matrix(self, y, y_hat):
-#         cost = tensor.nnet.binary_crossentropy(y_hat, y)
-#         return cost
-
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
@@ -138,6 +161,11 @@ if __name__ == "__main__":
                 default=1, help="number of channels")
     parser.add_argument("--size", type=int,
                 default=28, help="Output image size (width and height)")
+    parser.add_argument("--cols", type=int,
+                default=12, help="grid cols")
+    parser.add_argument("--rows", type=int,
+                default=8, help="grid rows")
+    parser.add_argument('--flat', dest='flat', default=False, action='store_true')
     args = parser.parse_args()
 
     logging.info("Loading file %s..." % args.model_file)
@@ -148,5 +176,5 @@ if __name__ == "__main__":
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
-    generate_samples(p, subdir, args.size, args.channels)
+    generate_samples(p, subdir, args.size, args.channels, args.rows, args.cols, args.flat)
 

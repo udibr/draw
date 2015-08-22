@@ -47,12 +47,6 @@ from draw.draw import *
 from draw.samplecheckpoint import SampleCheckpoint
 from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 
-# get rid of this soon
-class BinaryCrossEntropyCopy(CostMatrix):
-    def cost_matrix(self, y, y_hat):
-        cost = tensor.nnet.binary_crossentropy(y_hat, y)
-        return cost
-
 #----------------------------------------------------------------------------
 
 def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
@@ -185,12 +179,13 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     edge_image1 = theano.tensor.nnet.conv.conv2d(before4, th_filter, border_mode='valid') + 0.5
     edge_image2 = theano.tensor.nnet.conv.conv2d(after4, th_filter, border_mode='valid') + 0.5
 
-    # recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    recons_term2 = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # recons_term2 = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    recons_term2 = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
     recons_term2.name = "recons_term2"
 
-    cost = 0.5 * recons_term + 0.5 * recons_term2 + kl_terms.sum(axis=0).mean()
-    # cost = 0.9 * recons_term + 0.1 * recons_term2 + kl_terms.sum(axis=0).mean()
+    # cost = 0.5 * recons_term + 0.5 * recons_term2 + kl_terms.sum(axis=0).mean()
+    # cost = 0.8 * recons_term + 0.2 * recons_term2 + kl_terms.sum(axis=0).mean()
     # cost = recons_term + 1000 * recons_term2 + kl_terms.sum(axis=0).mean()
     cost = recons_term + kl_terms.sum(axis=0).mean()
     cost.name = "nll_bound"
