@@ -329,7 +329,8 @@ class DrawModel(BaseRecurrent, Initializable, Random):
 
     #------------------------------------------------------------------------
 
-    def reconstruct_orig(self, features):
+    @application(inputs=['features'], outputs=['recons', 'kl'])
+    def reconstruct(self, features):
         batch_size = features.shape[0]
         dim_z = self.get_dim('z')
 
@@ -348,8 +349,8 @@ class DrawModel(BaseRecurrent, Initializable, Random):
 
         return x_recons, kl
 
-    @application(inputs=['features'], outputs=['recons', 'kl'])
-    def reconstruct(self, features):
+    # note for this version, z + u also gets out
+    def reconstruct_flat(self, features):
         batch_size = features.shape[0]
         dim_z = self.get_dim('z')
 
@@ -359,32 +360,6 @@ class DrawModel(BaseRecurrent, Initializable, Random):
                     avg=0., std=1.)
 
         u = T.tile(u1, (self.n_iter, 1)).reshape((self.n_iter, batch_size, dim_z))
-
-        c, h_enc, c_enc, z, kl, h_dec, c_dec = \
-            rvals = self.apply(x=features, u=u)
-
-        x_recons = T.nnet.sigmoid(c[-1,:,:])
-        x_recons.name = "reconstruction"
-
-        kl.name = "kl"
-
-        return x_recons, kl
-
-    # identical to above, but z gets out
-    def reconstruct2(self, features):
-        batch_size = features.shape[0]
-        dim_z = self.get_dim('z')
-
-        # Sample from mean-zeros std.-one Gaussian
-        u1 = self.theano_rng.normal(
-                    size=(batch_size, dim_z),
-                    avg=0., std=1.)
-
-        u = T.tile(u1, (self.n_iter, 1)).reshape((self.n_iter, batch_size, dim_z))
-
-        # u = self.theano_rng.normal(
-        #             size=(self.n_iter, batch_size, dim_z),
-        #             avg=0., std=1.)
 
         c, h_enc, c_enc, z, kl, h_dec, c_dec = \
             rvals = self.apply(x=features, u=u)

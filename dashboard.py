@@ -126,8 +126,8 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
 def build_reconstruct_pairs(data_stream, num, model, channels, size):
     draw = model.get_top_bricks()[0]
     x = tensor.matrix('features')
-    # EXPERIMENT reconstruct_function = theano.function([x], draw.reconstruct2(x))    
-    reconstruct_function = theano.function([x], draw.reconstruct_orig(x))    
+    reconstruct_function = theano.function([x], draw.reconstruct(x))    
+    # EXPERIMENT reconstruct_function = theano.function([x], draw.reconstruct_flat(x))    
     iterator = data_stream.get_epoch_iterator(as_dict=True)
     pairs = []
     target_shape = (channels, size, size)
@@ -144,8 +144,8 @@ def build_reconstruct_pairs(data_stream, num, model, channels, size):
 
     for i in range(num):
         next_im = datastream_images[i].reshape(input_shape)
-        # EXPERIMENT recon_im, kterms, z, u = reconstruct_function(next_im)
         recon_im, kterms = reconstruct_function(next_im)
+        # EXPERIMENT recon_im, kterms, z, u = reconstruct_function(next_im)
         # print(kterms.shape, np.amin(kterms), np.amax(kterms))
         # print("Z", z.shape, z[0], z[1], np.amin(z), np.amax(z))
         # print("U", u.shape, u[0], u[1], np.amin(u), np.amax(u))
