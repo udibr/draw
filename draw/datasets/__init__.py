@@ -7,6 +7,7 @@ supported_datasets = ['bmnist', 'silhouettes']
 # ToDo: # 'mnist' and 'tfd' are not normalized (0<= x <=1.)
 
 def get_data(data_name, channels=None, size=None):
+    print("==============> Fetching Data")
     if data_name == 'mnist':
         from fuel.datasets import MNIST
         img_size = (28, 28)
@@ -63,9 +64,11 @@ def get_data(data_name, channels=None, size=None):
         except ValueError as e:
             data_valid = H5PYDataset(dataset_fname, which_sets=['test'], sources=['features'])
         data_test = H5PYDataset(dataset_fname, which_sets=['test'], sources=['features'])
-        # this maybe could be an option
-        data_train.default_transformers = uint8_pixels_to_floatX(('features',))
-        data_valid.default_transformers = uint8_pixels_to_floatX(('features',))
-        data_test.default_transformers = uint8_pixels_to_floatX(('features',))
+        # this maybe could be an option - for now skip in lab space
+        if not "-lab" in data_name:
+            print("==============> Scaling features")
+            data_train.default_transformers = uint8_pixels_to_floatX(('features',))
+            data_valid.default_transformers = uint8_pixels_to_floatX(('features',))
+            data_test.default_transformers = uint8_pixels_to_floatX(('features',))
 
     return img_size, channels, data_train, data_valid, data_test

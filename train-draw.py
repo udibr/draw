@@ -50,7 +50,7 @@ from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 #----------------------------------------------------------------------------
 
 def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
-         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel):
+         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab):
 
     image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, channels, size)
 
@@ -162,32 +162,68 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     recons_term = BinaryCrossEntropy().apply(x, x_recons)
     recons_term.name = "recons_term"
 
-    # add cost of edges
-    if(channels == 1):
-        edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-        th_filter = T.reshape(edge_matrix, (1,1,3,3))
-    else:
-        edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
-                                       [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
-                                       [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-        th_filter = T.reshape(edge_matrix, (1,3,3,3))
 
-    before_len = x.shape[0]
-    after_len = x_recons.shape[0]
-    before4 = T.reshape(x, (before_len, channels, img_height, img_width))
-    after4 = T.reshape(x_recons, (after_len, channels, img_height, img_width))
-    edge_image1 = theano.tensor.nnet.conv.conv2d(before4, th_filter, border_mode='valid') + 0.5
-    edge_image2 = theano.tensor.nnet.conv.conv2d(after4, th_filter, border_mode='valid') + 0.5
+    # edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+    # th_filter = T.reshape(edge_matrix, (1,1,3,3))
 
-    recons_term2 = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # recons_term2 = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    recons_term2 = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    recons_term2.name = "recons_term2"
+    ## add cost of edges
+    ## if(channels == 1):
+    ##     edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+    ##     th_filter = T.reshape(edge_matrix, (1,1,3,3))
+    ## else:
+    ##     edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
+    ##                                    [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0],
+    ##                                    [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+    ##     th_filter = T.reshape(edge_matrix, (1,3,3,3))
 
-    # cost = 0.5 * recons_term + 0.5 * recons_term2 + kl_terms.sum(axis=0).mean()
-    # cost = 0.8 * recons_term + 0.2 * recons_term2 + kl_terms.sum(axis=0).mean()
-    # cost = recons_term + 1000 * recons_term2 + kl_terms.sum(axis=0).mean()
-    cost = recons_term + kl_terms.sum(axis=0).mean()
+    # before_len = x.shape[0]
+    # after_len = x_recons.shape[0]
+    # before4 = T.reshape(x, (before_len, channels, img_height, img_width))
+    # after4 = T.reshape(x_recons, (after_len, channels, img_height, img_width))
+
+    # if(channels == 1):
+    #     recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before4, after4)
+    # else:
+    #     recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before4[:,0,:,:], after4[:,0,:,:])
+    # recons_term_main.name = "recons_term_main"
+
+    # edge_image1 = theano.tensor.nnet.conv.conv2d(before4[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
+    # edge_image2 = theano.tensor.nnet.conv.conv2d(after4[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
+
+    # recons_term_edge = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # # recons_term_edge = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # # recons_term_edge = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # recons_term_edge.name = "recons_term_edge"
+
+    kl_terms_sum = kl_terms.sum(axis=0).mean()
+    kl_terms_sum.name = "kl_terms_sum"
+
+    # cost_recons_main = 1.0 * recons_term_main
+    # cost_recons_main.name = "cost_recons_main"
+
+
+    # cost_kl_terms = 10000 * kl_terms_sum
+    # cost_kl_terms.name = "cost_kl_terms"
+    # if (channels == 1):
+    #     cost_recons_edge = 1.0 * recons_term_edge
+    #     cost_recons_edge.name = "cost_recons_edge"
+    #     cost = cost_recons_main + cost_recons_edge + cost_kl_terms
+    # else:
+    #     cost_recons_edge = 10.0 * recons_term_edge
+    #     cost_recons_edge.name = "cost_recons_edge"
+
+    #     recons_term_color1 = BinaryCrossEntropy(name='color1_crossentropy').apply(before4[:,1,:,:], after4[:,1,:,:])
+    #     recons_term_color1.name = "recons_term_color1"
+
+    #     recons_term_color2 = BinaryCrossEntropy(name='color2_crossentropy').apply(before4[:,2,:,:], after4[:,2,:,:])
+    #     recons_term_color2.name = "recons_term_color2"
+
+    #     cost_recons_color = (0.10 * (recons_term_color1 + recons_term_color2))
+    #     cost_recons_color.name = "cost_recons_color"
+
+    #     cost = cost_recons_main + cost_recons_edge + cost_recons_color + cost_kl_terms
+
+    cost = recons_term + kl_terms_sum
     cost.name = "nll_bound"
 
     #------------------------------------------------------------
@@ -207,7 +243,10 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
     #------------------------------------------------------------------------
     # Setup monitors
-    monitors = [cost]
+    monitors = [cost, recons_term, kl_terms_sum]
+    # monitors = [cost, cost_recons_main, cost_kl_terms, recons_term_main, kl_terms_sum, recons_term_edge, cost_recons_edge]
+    # if (channels > 1):
+    #     monitors.extend([cost_recons_color, recons_term_color1, recons_term_color2])
     for t in range(n_iter):
         kl_term_t = kl_terms[t,:].mean()
         kl_term_t.name = "kl_term_%d" % t
@@ -257,7 +296,7 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 #                updates=scan_updates, 
                 prefix="test"),
             PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
-            SampleCheckpoint(image_size=image_size[0], channels=channels, save_subdir=subdir, \
+            SampleCheckpoint(image_size=image_size[0], channels=channels, lab=lab, save_subdir=subdir, \
                 before_training=True, after_epoch=True, train_stream=train_stream, test_stream=test_stream),
             # Plot(name, channels=plot_channels),
             ProgressBar(),
@@ -302,6 +341,8 @@ if __name__ == "__main__":
                 default=100, help="Z-vector dimension")
     parser.add_argument("--oldmodel", type=str,
                 help="Use a model pkl file created by a previous run as a starting point for all parameters")
+    parser.add_argument('--lab', dest='lab', default=False,
+                help="Lab Colorspace", action='store_true')
     args = parser.parse_args()
 
     main(**vars(args))

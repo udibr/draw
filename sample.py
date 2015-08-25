@@ -15,6 +15,8 @@ from blocks.main_loop import MainLoop
 from blocks.model import AbstractModel
 from blocks.config import config
 
+from draw.labcolor import scaled_lab2rgb
+
 FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
 DATEFMT = "%H:%M:%S"
 logging.basicConfig(format=FORMAT, datefmt=DATEFMT, level=logging.INFO)
@@ -30,7 +32,7 @@ def scale_norm(arr):
 # ROWS = 6
 # COLS = 8
 
-def img_grid(arr, rows, cols, global_scale=True):
+def img_grid(arr, rows, cols, lab, global_scale=False):
     N, channels, height, width = arr.shape
 
     # global ROWS, COLS
@@ -58,22 +60,30 @@ def img_grid(arr, rows, cols, global_scale=True):
         r = i // cols
         c = i % cols
 
-        if global_scale:
-            this = arr[i]
-        else:
-            this = scale_norm(arr[i])
+        this = arr[i]
+        # if global_scale:
+        #     this = arr[i]
+        # else:
+        #     this = scale_norm(arr[i])
 
         offset_y, offset_x = r*height+r, c*width+c
         I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = this
     
-    I = (255*I).astype(np.uint8)
     if(channels == 1):
         out = I.reshape( (total_height, total_width) )
     else:
-        out = np.dstack(I).astype(np.uint8)
+        out = np.dstack(I)
+
+    if(lab):
+        # out[0:16][0:16] = [0.0, 0.0, 0.0]
+        # out[0:8][0:8] = [1.0, 1.0, 1.0]
+        out = scaled_lab2rgb(out)
+
+    out = (255 * out).astype(np.uint8)
+
     return Image.fromarray(out)
 
-def generate_samples(p, subdir, output_size, channels, rows, cols, flat):
+def generate_samples(p, subdir, output_size, channels, lab, rows, cols, flat):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -137,11 +147,11 @@ def generate_samples(p, subdir, output_size, channels, rows, cols, flat):
     samples = samples.reshape( (n_iter, N, channels, output_size, output_size) )
 
     if(n_iter > 0):
-        img = img_grid(samples[n_iter-1,:,:,:], rows, cols)
+        img = img_grid(samples[n_iter-1,:,:,:], rows, cols, lab)
         img.save("{0}/sample.png".format(subdir))
 
     for i in xrange(n_iter-1):
-        img = img_grid(samples[i,:,:,:], rows, cols)
+        img = img_grid(samples[i,:,:,:], rows, cols, lab)
         img.save("{0}/time-{1:03d}.png".format(subdir, i))
 
     # for i in xrange(n_iter-1):
@@ -166,6 +176,8 @@ if __name__ == "__main__":
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
+    parser.add_argument('--lab', dest='lab', default=False,
+                help="Lab Colorspace", action='store_true')
     args = parser.parse_args()
 
     logging.info("Loading file %s..." % args.model_file)
@@ -176,5 +188,5 @@ if __name__ == "__main__":
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
-    generate_samples(p, subdir, args.size, args.channels, args.rows, args.cols, args.flat)
+    generate_samples(p, subdir, args.size, args.channels, args.lab, args.rows, args.cols, args.flat)
 

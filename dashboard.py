@@ -43,6 +43,7 @@ from blocks.model import Model
 
 import draw.datasets as datasets
 from draw.draw import *
+from draw.labcolor import scaled_lab2rgb
 
 from PIL import Image
 from blocks.main_loop import MainLoop
@@ -53,7 +54,7 @@ FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
 DATEFMT = "%H:%M:%S"
 logging.basicConfig(format=FORMAT, datefmt=DATEFMT, level=logging.INFO)
 
-def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, samples, left_samp, right_samp):
+def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, samples, left_samp, right_samp, lab):
     total_height = rows * height + (rows - 1)
     total_width  = cols * width + (cols - 1)
 
@@ -116,11 +117,16 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
     #     offset_y, offset_x = cur_r * height + cur_r, cur_c * width + cur_c
     #     I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = right_samp[r]
 
-    I = (255*I).astype(np.uint8)
     if(channels == 1):
         out = I.reshape( (total_height, total_width) )
     else:
-        out = np.dstack(I).astype(np.uint8)
+        out = np.dstack(I)
+
+    if(lab):
+        out = scaled_lab2rgb(out)
+
+    out = (255 * out).astype(np.uint8)
+
     return Image.fromarray(out)
 
 def build_reconstruct_pairs(data_stream, num, model, channels, size):
@@ -248,7 +254,7 @@ def build_neighbors(model, data_stream, size, channels, images_left, images_righ
     attach_recon_to_neighbors(model, pairs_left, pairs_right, channels, size)
     return [pairs_left, pairs_right]
 
-def generate_dash(model, subdir, size, channels, rows, cols, train_stream, test_stream):
+def generate_dash(model, subdir, size, channels, lab, rows, cols, train_stream, test_stream):
     sample_rows = rows - 4
     sample_cols = cols - 6
     num_rand = sample_rows * sample_cols
@@ -264,12 +270,13 @@ def generate_dash(model, subdir, size, channels, rows, cols, train_stream, test_
     logging.info("Generating pairs (test)")    
     test_pairs = build_reconstruct_pairs(test_stream, cols, model, channels, size)
     logging.info("Rendering grid")
-    imgrid = render_grid(rows, cols, size, size, channels, train_pairs, test_pairs, samples, left_pairs, right_pairs)
+    imgrid = render_grid(rows, cols, size, size, channels, train_pairs, test_pairs, samples, left_pairs, right_pairs, lab)
     imgrid.save("{0}/dash.png".format(subdir))
 
 def do_sample(subdir, args):
     rows = args.rows
     cols = args.cols
+    lab = args.lab
 
     logging.info("Loading file %s..." % args.model_file)
     with open(args.model_file, "rb") as f:
@@ -288,7 +295,7 @@ def do_sample(subdir, args):
     test_stream  = Flatten(DataStream.default_stream(data_test,  iteration_scheme=SequentialScheme(data_test.num_examples, 1)))
     size = image_size[0]
 
-    generate_dash(model, subdir, size, channels, rows, cols, train_stream, test_stream)
+    generate_dash(model, subdir, size, channels, lab, rows, cols, train_stream, test_stream)
     # generate_samples(p, rows, cols, train_pairs, subdir, size, channels)
 
 if __name__ == "__main__":
@@ -306,6 +313,8 @@ if __name__ == "__main__":
                 default=12, help="grid cols")
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
+    parser.add_argument('--lab', dest='lab', default=False,
+                help="Lab Colorspace", action='store_true')
 
     args = parser.parse_args()
 

@@ -11,10 +11,11 @@ from sample import generate_samples
 from dashboard import generate_dash
 
 class SampleCheckpoint(Checkpoint):
-    def __init__(self, image_size, channels, save_subdir, train_stream, test_stream, **kwargs):
+    def __init__(self, image_size, channels, lab, save_subdir, train_stream, test_stream, **kwargs):
         super(SampleCheckpoint, self).__init__(path=None, **kwargs)
         self.image_size = image_size
         self.channels = channels
+        self.lab = lab
         self.save_subdir = save_subdir
         self.iteration = 0
         self.train_stream = train_stream
@@ -36,14 +37,14 @@ class SampleCheckpoint(Checkpoint):
         """Sample the model and save images to disk
         """
         if self.samples_every != 0 and self.iteration % self.samples_every == 0:
-            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, 6, 8, False)
+            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, self.lab, 6, 8, False)
             if os.path.exists(self.epoch_src):
                 epoch_dst = "{0}/epoch-{1:03d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.epoch_src, epoch_dst)
                 os.system("convert -delay 5 -loop 1 {0}/epoch-*.png {0}/training.gif".format(self.save_subdir))
         if self.dash_every != 0 and self.iteration % self.dash_every == 0:
             generate_dash(self.main_loop.model, self.save_subdir, self.image_size, self.channels, \
-                self.dash_rows, self.dash_cols, self.train_stream, self.test_stream)
+                self.lab, self.dash_rows, self.dash_cols, self.train_stream, self.test_stream)
             if os.path.exists(self.epoch_src):
                 dash_dst = "{0}/dash-{1:03d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.dash_src, dash_dst)
