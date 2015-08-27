@@ -178,9 +178,9 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     before_len = x.shape[0]
     after_len = x_recons.shape[0]
 
-    before_split1 = T.reshape(x, (before_len, channels * img_height * img_width))
-    after_split1 = T.reshape(x_recons, (after_len, channels * img_height * img_width))
-    recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before_split1, after_split1)
+    # before_split1 = T.reshape(x, (before_len, channels * img_height * img_width))
+    # after_split1 = T.reshape(x_recons, (after_len, channels * img_height * img_width))
+    # recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before_split1, after_split1)
 
     # before_split2 = T.reshape(x, (before_len, channels, img_height * img_width))
     # after_split2 = T.reshape(x_recons, (after_len, channels, img_height * img_width))
@@ -192,11 +192,11 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     recons_term_single = BinaryCrossEntropy(name='recons_term_single').apply(before_split[0], after_split[0])
 
     if(channels == 1):
-        recons_term = 1.0 * recons_term_main
+        recons_term = 1.0 * recons_term_single
     else:
         recons_term_color1 = BinaryCrossEntropy(name='recons_term_color1').apply(before_split[1], after_split[1])
         recons_term_color2 = BinaryCrossEntropy(name='recons_term_color2').apply(before_split[2], after_split[2])
-        recons_term = 1.0 * recons_term_main + 0.1 * recons_term_color1 + 0.1 * recons_term_color2
+        recons_term = 1.0 * recons_term_single + 0.1 * recons_term_color1 + 0.1 * recons_term_color2
 
     recons_term.name = "recons_term"
 
@@ -282,7 +282,7 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     # monitors = [cost, recons_term, kl_terms_sum]
     # monitors = [cost, recons_term, recons_term_main, kl_terms_sum]
     # monitors.extend([recons_term_single, recons_term_edge])
-    monitors = [cost, recons_term, recons_term_main, kl_terms_sum, recons_term_edge]
+    monitors = [cost, recons_term, recons_term_single, kl_terms_sum, recons_term_edge]
     if (channels > 1):
         monitors.extend([recons_term_color1, recons_term_color2])
     # monitors = [cost, cost_recons_main, cost_kl_terms, recons_term_main, kl_terms_sum, recons_term_edge, cost_recons_edge]
