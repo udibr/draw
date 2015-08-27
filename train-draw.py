@@ -159,12 +159,9 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     
     x_recons, kl_terms = draw.reconstruct(x)
 
-    recons_term = BinaryCrossEntropy().apply(x, x_recons)
-    recons_term.name = "recons_term"
+    # recons_term = BinaryCrossEntropy().apply(x, x_recons)
+    # recons_term.name = "recons_term"
 
-
-    # edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-    # th_filter = T.reshape(edge_matrix, (1,1,3,3))
 
     ## add cost of edges
     ## if(channels == 1):
@@ -176,10 +173,36 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     ##                                    [0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
     ##     th_filter = T.reshape(edge_matrix, (1,3,3,3))
 
-    # before_len = x.shape[0]
-    # after_len = x_recons.shape[0]
-    # before4 = T.reshape(x, (before_len, channels, img_height, img_width))
-    # after4 = T.reshape(x_recons, (after_len, channels, img_height, img_width))
+
+    # BEGIN COMMENT
+    before_len = x.shape[0]
+    after_len = x_recons.shape[0]
+
+    before_split1 = T.reshape(x, (before_len, channels * img_height * img_width))
+    after_split1 = T.reshape(x_recons, (after_len, channels * img_height * img_width))
+    recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before_split1, after_split1)
+
+    # before_split2 = T.reshape(x, (before_len, channels, img_height * img_width))
+    # after_split2 = T.reshape(x_recons, (after_len, channels, img_height * img_width))
+    # recons_term_single = BinaryCrossEntropy(name='recons_term_single').apply(before_split2[0], after_split2[0])
+
+    # full split
+    before_split = T.reshape(x, (before_len, channels, img_height * img_width))
+    after_split = T.reshape(x_recons, (after_len, channels, img_height * img_width))
+    recons_term_single = BinaryCrossEntropy(name='recons_term_single').apply(before_split[0], after_split[0])
+
+    if(channels == 1):
+        recons_term = 1.0 * recons_term_main
+    else:
+        recons_term_color1 = BinaryCrossEntropy(name='recons_term_color1').apply(before_split[1], after_split[1])
+        recons_term_color2 = BinaryCrossEntropy(name='recons_term_color2').apply(before_split[2], after_split[2])
+        recons_term = 1.0 * recons_term_main + 0.1 * recons_term_color1 + 0.1 * recons_term_color2
+
+    recons_term.name = "recons_term"
+
+    # begin edge
+    before_unfolded = T.reshape(x, (before_len, channels, img_height, img_width))
+    after_unfolded = T.reshape(x_recons, (after_len, channels, img_height, img_width))
 
     # if(channels == 1):
     #     recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before4, after4)
@@ -187,16 +210,28 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     #     recons_term_main = BinaryCrossEntropy(name='main_crossentropy').apply(before4[:,0,:,:], after4[:,0,:,:])
     # recons_term_main.name = "recons_term_main"
 
-    # edge_image1 = theano.tensor.nnet.conv.conv2d(before4[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
-    # edge_image2 = theano.tensor.nnet.conv.conv2d(after4[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
+    edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
+    th_filter = T.reshape(edge_matrix, (1,1,3,3))
 
-    # recons_term_edge = BinaryCrossEntropy(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # # recons_term_edge = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # # recons_term_edge = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # recons_term_edge.name = "recons_term_edge"
+    before_edge_image = theano.tensor.nnet.conv.conv2d(before_unfolded[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
+    after_edge_image = theano.tensor.nnet.conv.conv2d(after_unfolded[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
+
+    before_edge_flat = T.reshape(before_edge_image, (before_len, (img_height-2) * (img_width-2)))
+    after_edge_flat = T.reshape(after_edge_image, (after_len, (img_height-2) * (img_width-2)))
+
+    recons_term_edge = BinaryCrossEntropy(name='recons_term_edge').apply(before_edge_flat, after_edge_flat)
+    # recons_term_edge = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    # recons_term_edge = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
+    recons_term_edge.name = "recons_term_edge"
+
+    # recons_term = 1.0 * recons_term_main
+    # recons_term.name = "recons_term"
+
+    # END COMMENT
 
     kl_terms_sum = kl_terms.sum(axis=0).mean()
     kl_terms_sum.name = "kl_terms_sum"
+
 
     # cost_recons_main = 1.0 * recons_term_main
     # cost_recons_main.name = "cost_recons_main"
@@ -223,7 +258,8 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
     #     cost = cost_recons_main + cost_recons_edge + cost_recons_color + cost_kl_terms
 
-    cost = recons_term + kl_terms_sum
+    cost = recons_term + 0.25 * recons_term_edge + kl_terms_sum
+    # cost = recons_term + kl_terms_sum
     cost.name = "nll_bound"
 
     #------------------------------------------------------------
@@ -243,7 +279,12 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
     #------------------------------------------------------------------------
     # Setup monitors
-    monitors = [cost, recons_term, kl_terms_sum]
+    # monitors = [cost, recons_term, kl_terms_sum]
+    # monitors = [cost, recons_term, recons_term_main, kl_terms_sum]
+    # monitors.extend([recons_term_single, recons_term_edge])
+    monitors = [cost, recons_term, recons_term_main, kl_terms_sum, recons_term_edge]
+    if (channels > 1):
+        monitors.extend([recons_term_color1, recons_term_color2])
     # monitors = [cost, cost_recons_main, cost_kl_terms, recons_term_main, kl_terms_sum, recons_term_edge, cost_recons_edge]
     # if (channels > 1):
     #     monitors.extend([cost_recons_color, recons_term_color1, recons_term_color2])
