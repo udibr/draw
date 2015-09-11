@@ -17,8 +17,6 @@ import ipdb
 import time
 import cPickle as pickle
 
-#import blocks.extras
-
 from argparse import ArgumentParser
 from theano import tensor
 
@@ -38,19 +36,25 @@ from blocks.monitoring import aggregation
 from blocks.extensions import FinishAfter, Timing, Printing, ProgressBar
 from blocks.extensions.saveload import Checkpoint
 from blocks.extensions.monitoring import DataStreamMonitoring, TrainingDataMonitoring
-#from blocks.extras.extensions.plot import Plot
 from blocks.main_loop import MainLoop
 from blocks.model import Model
+
+try:
+    from blocks.extras import Plot
+except ImportError:
+    pass
+
 
 import draw.datasets as datasets
 from draw.draw import *
 from draw.samplecheckpoint import SampleCheckpoint
 from draw.partsonlycheckpoint import PartsOnlyCheckpoint
 
-#----------------------------------------------------------------------------
+sys.setrecursionlimit(100000)
 
+#----------------------------------------------------------------------------
 def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
-         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab):
+         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab, live_plotting):
 
     image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, channels, size)
 
@@ -258,6 +262,12 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
+    plotting_extensions = []
+    if live_plotting:
+        plotting_extensions = [
+            Plot(name, channels=plot_channels)
+        ]
+
     main_loop = MainLoop(
         model=Model(cost),
         data_stream=train_stream,
@@ -279,18 +289,19 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
                 test_stream,
 #                updates=scan_updates, 
                 prefix="test"),
+            #Checkpoint(name, before_training=False, after_epoch=True, save_separately=['log', 'model']),
             PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
             SampleCheckpoint(image_size=image_size[0], channels=channels, lab=lab, save_subdir=subdir, \
                 before_training=True, after_epoch=True, train_stream=train_stream, test_stream=test_stream),
-            # Plot(name, channels=plot_channels),
             ProgressBar(),
-            Printing()])
+            Printing()] + plotting_extensions)
 
     if oldmodel is not None:
         print("Initializing parameters with old model %s"%oldmodel)
         with open(oldmodel, "rb") as f:
             oldmodel = pickle.load(f)
             main_loop.model.set_parameter_values(oldmodel.get_parameter_values())
+            # main_loop.model.set_parameter_values(oldmodel.get_param_values())
         del oldmodel
 
     main_loop.run()
@@ -299,6 +310,8 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("--live-plotting", "--plot", action="store_true",
+                default=False, help="Activate live-plotting to a bokeh-server")
     parser.add_argument("--name", type=str, dest="name",
                 default=None, help="Name for this experiment")
     parser.add_argument("--dataset", type=str, dest="dataset",
