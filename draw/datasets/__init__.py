@@ -57,7 +57,7 @@ def get_data(data_name, channels=None, size=None):
         if size is None or channels is None:
             raise Exception("Image size and channels must be specified for data source {}".format(data_name))
         img_size = (size, size)
-        dataset_fname = os.path.join(fuel.config.data_path, data_name+'.hdf5')
+        dataset_fname = os.path.join(fuel.config.data_path[0], data_name, data_name+'.hdf5')
         data_train = H5PYDataset(dataset_fname, which_sets=['train'], sources=['features'])
         try:
             data_valid = H5PYDataset(dataset_fname, which_sets=['valid'], sources=['features'])

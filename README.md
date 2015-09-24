@@ -70,6 +70,16 @@ After each epoch it will save the following files:
  * a pickle of the log
  * sampled output image for that epoch
  * animation of sampled output
+ 
+Batch Normalization
+-------------------
+In order to use batch normalization you will have to use blocks from the following fork:
+https://github.com/vdumoulin/blocks
+and use the
+[batch_normalization](https://github.com/vdumoulin/blocks/tree/batch_normalization)
+branch.
+
+Comparsion of using Batch Normalization and not using it are in this [notebook](./plot-nll.ipynb)
 
 Pre-trained model
 -----------------
