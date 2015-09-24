@@ -274,33 +274,36 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
             Plot(name, channels=plot_channels)
         ]
 
+    extensions=[
+        Timing(),
+        FinishAfter(after_n_epochs=epochs),
+        TrainingDataMonitoring(
+            train_monitors,
+            prefix="train",
+            after_epoch=True),
+        DataStreamMonitoring(
+            monitors,
+            test_stream,
+            prefix="test"),
+        PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
+        ProgressBar(),
+        Printing()]
+    if not batch_normalization:
+        extensions.append(SampleCheckpoint(image_size=image_size[0],
+                                           channels=channels,
+                                           lab=lab,
+                                           save_subdir=subdir,
+                                           before_training=True,
+                                           after_epoch=True,
+                                           train_stream=train_stream,
+                                           test_stream=test_stream))
+    extensions += plotting_extensions
+
     main_loop = MainLoop(
         model=Model(cost),
         data_stream=train_stream,
         algorithm=algorithm,
-        extensions=[
-            Timing(),
-            FinishAfter(after_n_epochs=epochs),
-            TrainingDataMonitoring(
-                train_monitors, 
-                prefix="train",
-                after_epoch=True),
-#            DataStreamMonitoring(
-#                monitors,
-#                valid_stream,
-##                updates=scan_updates,
-#                prefix="valid"),
-            DataStreamMonitoring(
-                monitors,
-                test_stream,
-#                updates=scan_updates, 
-                prefix="test"),
-            #Checkpoint(name, before_training=False, after_epoch=True, save_separately=['log', 'model']),
-            PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
-            # SampleCheckpoint(image_size=image_size[0], channels=channels, lab=lab, save_subdir=subdir, \
-            #     before_training=True, after_epoch=True, train_stream=train_stream, test_stream=test_stream),
-            ProgressBar(),
-            Printing()] + plotting_extensions)
+        extensions=extensions)
 
     if oldmodel is not None:
         print("Initializing parameters with old model %s"%oldmodel)
